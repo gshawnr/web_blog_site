@@ -1,10 +1,10 @@
 const DB = require("mongoose");
-require("dotenv").config();
 
-const url = "mongodb://localhost:27017/BlogDB";
-const onlineUrl = ``;
+// DB URL Strings
+const localUrl = "mongodb://localhost:27017/BlogDB";
+const onlineUrl = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_SECRET}@gsr-mongo-cluster.kkuknqw.mongodb.net/BlogDB?retryWrites=true&w=majority`;
 
-DB.connect(url);
+DB.connect(onlineUrl);
 
 exports.createCollection = (name, schema) => {
   const collectionSchema = new DB.Schema(schema);
