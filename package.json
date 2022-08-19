@@ -7,6 +7,9 @@
   },
   "author": "GSR",
   "license": "ISC",
+  "engines": {
+    "node": "16.x"
+  },
   "dependencies": {
     "body-parser": "^1.18.3",
     "dotenv": "^16.0.1",
