@@ -9,7 +9,7 @@
     </h2>
     <p>
       <% if(post.postBody.length> 100){ %>
-        <%= post.postBody.substring(0, 300) + "..." %> <a href="/posts/<%=post.postTitle %>">read more</a>
+        <%= post.postBody.substring(0, 300) + "..." %> <a href="/posts/<%=post.id %>">read more</a>
           <% } else { %>
             <%= post.postBody %>
               <% } %>

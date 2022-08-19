@@ -3,6 +3,8 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const _ = require("lodash");
 
+const { getPosts, getPost, createPost } = require(__dirname + "/models/post");
+
 const homeStartingContent =
   "Lacus vel facilisis volutpat est velit egestas dui id ornare. Semper auctor neque vitae tempus quam. Sit amet cursus sit amet dictum sit amet justo. Viverra tellus in hac habitasse. Imperdiet proin fermentum leo vel orci porta. Donec ultrices tincidunt arcu non sodales neque sodales ut. Mattis molestie a iaculis at erat pellentesque adipiscing. Magnis dis parturient montes nascetur ridiculus mus mauris vitae ultricies. Adipiscing elit ut aliquam purus sit amet luctus venenatis lectus. Ultrices vitae auctor eu augue ut lectus arcu bibendum at. Odio euismod lacinia at quis risus sed vulputate odio ut. Cursus mattis molestie a iaculis at erat pellentesque adipiscing.";
 const aboutContent =
@@ -17,19 +19,21 @@ app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// APP DATA
-const posts = [];
-
 // ROUTES
-app.get("/", (req, res) => {
+app.get("/", async (req, res) => {
+  const posts = await getPosts();
   res.render("home", { homeStartingContent, posts });
 });
 
-app.post("/", (req, res) => {
-  const { postTitle, postBody } = req.body;
-  posts.push({ postTitle, postBody });
-
-  res.redirect("/");
+app.post("/", async (req, res) => {
+  try {
+    const { postTitle, postBody } = req.body;
+    await createPost({ postTitle, postBody });
+    res.redirect("/");
+  } catch (err) {
+    console.log("Error creating post: ", err);
+    res.redirect("/compose");
+  }
 });
 
 app.get("/about", (req, res) => {
@@ -44,15 +48,18 @@ app.get("/contact", (req, res) => {
   res.render("contact", { contactContent });
 });
 
-app.get("/posts/:postName", (req, res) => {
-  const searchName = req.params.postName;
-  const post = posts.find((post) => {
-    return _.lowerCase(post.postTitle) === _.lowerCase(searchName);
-  });
+app.get("/posts/:postId", async (req, res) => {
+  try {
+    const id = req.params.postId;
+    const post = await getPost({ _id: id });
 
-  if (post) {
-    res.render("post", { title: post.postTitle, post: post.postBody });
-  } else {
+    if (post) {
+      res.render("post", { title: post.postTitle, post: post.postBody });
+    } else {
+      res.redirect("/");
+    }
+  } catch (err) {
+    console.log("Error fetching data", err);
     res.redirect("/");
   }
 });
