@@ -1,6 +1,6 @@
 const DB = require("mongoose");
 
-DB.connect(process.env.DB_URL);
+DB.connect(process.env.DB_ACTIVE_URL);
 
 exports.createCollection = (name, schema, plugins = []) => {
   const Schema = new DB.Schema(schema);
