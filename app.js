@@ -21,7 +21,7 @@ app.use(express.static("public"));
 
 // Auth
 const store = new MongoDBStore({
-  uri: process.env.DB_LOCAL_URL,
+  uri: process.env.DB_URL,
   collection: process.env.SESSION_COLLECTION,
 });
 
