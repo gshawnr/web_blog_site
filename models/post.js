@@ -13,10 +13,18 @@ const Post = db.createCollection("Post", {
     minLength: 1,
     maxlength: 2000,
   },
+  userId: {
+    type: String,
+    required: true,
+  },
 });
 
-exports.getPosts = async () => {
-  return await Post.find();
+exports.getPosts = async (id = null) => {
+  if (!id) {
+    return await Post.find();
+  } else {
+    return await Post.find({ userId: id });
+  }
 };
 
 exports.getPost = async (id) => {

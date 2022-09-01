@@ -5,14 +5,12 @@ const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const _ = require("lodash");
 
-const { getPosts, getPost, createPost } = require(__dirname + "/models/post");
+const session = require("express-session");
+const MongoDBStore = require("connect-mongodb-session")(session);
+const passport = require("passport");
 
-const homeStartingContent =
-  "Lacus vel facilisis volutpat est velit egestas dui id ornare. Semper auctor neque vitae tempus quam. Sit amet cursus sit amet dictum sit amet justo. Viverra tellus in hac habitasse. Imperdiet proin fermentum leo vel orci porta. Donec ultrices tincidunt arcu non sodales neque sodales ut. Mattis molestie a iaculis at erat pellentesque adipiscing. Magnis dis parturient montes nascetur ridiculus mus mauris vitae ultricies. Adipiscing elit ut aliquam purus sit amet luctus venenatis lectus. Ultrices vitae auctor eu augue ut lectus arcu bibendum at. Odio euismod lacinia at quis risus sed vulputate odio ut. Cursus mattis molestie a iaculis at erat pellentesque adipiscing.";
-const aboutContent =
-  "Hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Dictumst vestibulum rhoncus est pellentesque elit ullamcorper. Non diam phasellus vestibulum lorem sed. Platea dictumst quisque sagittis purus sit. Egestas sed sed risus pretium quam vulputate dignissim suspendisse. Mauris in aliquam sem fringilla. Semper risus in hendrerit gravida rutrum quisque non tellus orci. Amet massa vitae tortor condimentum lacinia quis vel eros. Enim ut tellus elementum sagittis vitae. Mauris ultrices eros in cursus turpis massa tincidunt dui.";
-const contactContent =
-  "Scelerisque eleifend donec pretium vulputate sapien. Rhoncus urna neque viverra justo nec ultrices. Arcu dui vivamus arcu felis bibendum. Consectetur adipiscing elit duis tristique. Risus viverra adipiscing at in tellus integer feugiat. Sapien nec sagittis aliquam malesuada bibendum arcu vitae. Consequat interdum varius sit amet mattis. Iaculis nunc sed augue lacus. Interdum posuere lorem ipsum dolor sit amet consectetur adipiscing elit. Pulvinar elementum integer enim neque. Ultrices gravida dictum fusce ut placerat orci nulla. Mauris in aliquam sem fringilla ut morbi tincidunt. Tortor posuere ac ut consequat semper viverra nam libero.";
+const { getPosts, getPost, createPost } = require(__dirname + "/models/post");
+const { User } = require("./models/user");
 
 const app = express();
 
@@ -21,45 +19,134 @@ app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-// ROUTES
-app.get("/", async (req, res) => {
-  // const posts = await getPosts();
-  const posts = [];
-  res.render("home", { homeStartingContent, posts });
+// Auth
+const store = new MongoDBStore({
+  uri: process.env.DB_LOCAL_URL,
+  collection: process.env.SESSION_COLLECTION,
 });
 
-app.post("/", async (req, res) => {
-  try {
-    const { postTitle, postBody } = req.body;
-    await createPost({ postTitle, postBody });
-    res.redirect("/");
-  } catch (err) {
-    console.log("Error creating post: ", err);
-    res.redirect("/compose");
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    store: store,
+  })
+);
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(User.createStrategy());
+passport.serializeUser((user, done) => {
+  done(null, user.id); // serialize user info
+});
+passport.deserializeUser((id, done) => {
+  User.findById(id, (err, user) => {
+    done(err, user);
+  });
+});
+
+// ROUTES
+app.route("/").get(async (req, res) => {
+  if (req.isAuthenticated()) {
+    const userId = req.user.id;
+    const posts = await getPosts(userId);
+    res.render("home", { posts });
+  } else {
+    res.render("home", { posts: [] });
   }
 });
 
-app.get("/about", (req, res) => {
-  res.render("about", { aboutContent });
+app.route("/about").get((req, res) => {
+  res.render("about");
 });
 
-app.get("/compose", (req, res) => {
-  res.render("compose", {});
+app
+  .route("/compose")
+  .get((req, res) => {
+    if (req.isAuthenticated()) {
+      res.render("compose", {});
+    } else {
+      res.redirect("/signin");
+    }
+  })
+  .post(async (req, res) => {
+    try {
+      if (req.isAuthenticated()) {
+        const userId = req.user.id;
+        const { postTitle, postBody } = req.body;
+        await createPost({ postTitle, postBody, userId });
+        res.redirect("/");
+      } else {
+        res.redirect("/signin");
+      }
+    } catch (err) {
+      console.log("Error creating post: ", err);
+      res.redirect("/compose");
+    }
+  });
+
+app.route("/contact").get((req, res) => {
+  res.render("contact");
 });
 
-app.get("/contact", (req, res) => {
-  res.render("contact", { contactContent });
+app
+  .route("/signin")
+  .get((req, res) => {
+    res.render("signin");
+  })
+  .post((req, res) => {
+    const user = new User({
+      username: req.body.username,
+      password: req.body.passpord,
+    });
+    req.login(user, (err) => {
+      if (err) {
+        console.log("signin error: ", err);
+        res.redirect("/");
+      } else {
+        passport.authenticate("local")(req, res, () => {
+          res.redirect("/");
+        });
+      }
+    });
+  });
+
+app.route("/signout").get((req, res) => {
+  if (req.isAuthenticated()) {
+    req.logout((err) => {
+      if (err) {
+        console.log("signout error: ", err);
+      }
+    });
+  }
+  res.redirect("/");
 });
 
-app.get("/signin", (req, res) => {
-  res.render("signin");
-});
+app
+  .route("/register")
+  .get((req, res) => {
+    res.render("register");
+  })
+  .post((req, res) => {
+    User.register(
+      { username: req.body.username },
+      req.body.password,
+      (err, user) => {
+        if (err) {
+          console.log("register error: ", err);
+          res.redirect("/register");
+        } else {
+          passport.authenticate("local")(req, res, () => {
+            res.redirect("/compose");
+          });
+        }
+      }
+    );
+  });
 
-app.get("/register", (req, res) => {
-  res.render("register");
-});
-
-app.get("/posts/:postId", async (req, res) => {
+app.route("/posts/:postId").get(async (req, res) => {
   try {
     const id = req.params.postId;
     const post = await getPost({ _id: id });
