@@ -23,7 +23,8 @@ app.use(express.static("public"));
 
 // ROUTES
 app.get("/", async (req, res) => {
-  const posts = await getPosts();
+  // const posts = await getPosts();
+  const posts = [];
   res.render("home", { homeStartingContent, posts });
 });
 
@@ -48,6 +49,14 @@ app.get("/compose", (req, res) => {
 
 app.get("/contact", (req, res) => {
   res.render("contact", { contactContent });
+});
+
+app.get("/signin", (req, res) => {
+  res.render("signin");
+});
+
+app.get("/register", (req, res) => {
+  res.render("register");
 });
 
 app.get("/posts/:postId", async (req, res) => {
